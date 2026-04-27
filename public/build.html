@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Relay — Build</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:wght@300;400;500&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #04050A;
+  --purple: #7C3AED;
+  --purple-lo: rgba(124,58,237,0.12);
+  --purple-mid: rgba(124,58,237,0.25);
+  --purple-glow: rgba(124,58,237,0.5);
+  --cyan: #06B6D4;
+  --white: #F0F2FF;
+  --muted: rgba(240,242,255,0.35);
+  --border: rgba(255,255,255,0.07);
+  --border-hi: rgba(124,58,237,0.3);
+  --success: #22C55E;
+  --danger: #EF4444;
+  --warning: #F59E0B;
+  --font-head: 'Syne', sans-serif;
+  --font-mono: 'DM Mono', monospace;
+  --font-body: 'Inter', sans-serif;
+}
+html, body { background: var(--bg); color: var(--white); font-family: var(--font-body); min-height: 100vh; overflow-x: hidden; }
+#circuit-canvas { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+.orb { position: fixed; border-radius: 50%; filter: blur(120px); pointer-events: none; z-index: 0; }
+.orb-1 { width: 600px; height: 600px; background: radial-gradient(circle, rgba(124,58,237,0.14) 0%, transparent 70%); top: -200px; left: -100px; }
+.orb-2 { width: 400px; height: 400px; background: radial-gradient(circle, rgba(6,182,212,0.08) 0%, transparent 70%); bottom: -100px; right: -80px; }
+
+nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 28px; height: 60px;
+  background: rgba(4,5,10,0.8); backdrop-filter: blur(24px);
+  border-bottom: 1px solid var(--border);
+}
+.logo { font-family: var(--font-head); font-size: 20px; font-weight: 800; letter-spacing: -0.5px; color: var(--white); display: flex; align-items: center; gap: 8px; text-decoration: none; }
+.logo-dot { width: 8px; height: 8px; background: var(--purple); border-radius: 50%; box-shadow: 0 0 12px var(--purple-glow); animation: pulseDot 2s ease-in-out infinite; }
+@keyframes pulseDot { 0%,100%{box-shadow:0 0 12px var(--purple-glow),0 0 24px var(--purple-glow);transform:scale(1)} 50%{box-shadow:0 0 22px var(--purple-glow),0 0 44px var(--purple-glow);transform:scale(1.25)} }
+.nav-right { display: flex; align-items: center; gap: 14px; }
+.nav-btn { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); background: none; border: none; cursor: pointer; transition: color 0.2s; text-decoration: none; }
+.nav-btn:hover { color: var(--white); }
+
+/* ── MAIN LAYOUT ── */
+.page { position: relative; z-index: 1; max-width: 760px; margin: 0 auto; padding: 80px 24px 60px; }
+
+.back-btn { display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); background: none; border: none; cursor: pointer; margin-bottom: 28px; transition: color 0.2s; text-decoration: none; }
+.back-btn:hover { color: var(--white); }
+
+.build-title { font-family: var(--font-head); font-size: clamp(18px, 4vw, 24px); font-weight: 800; letter-spacing: -0.3px; line-height: 1.35; margin-bottom: 12px; }
+.build-meta-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 28px; }
+.detail-ref { font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
+
+.badge { font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; padding: 4px 9px; border-radius: 5px; font-weight: 500; }
+.badge-green { background: rgba(34,197,94,0.12); color: #22C55E; }
+.badge-amber { background: rgba(245,158,11,0.12); color: #F59E0B; }
+.badge-purple { background: var(--purple-lo); color: #A78BFA; border: 1px solid rgba(124,58,237,0.2); }
+.badge-red { background: rgba(239,68,68,0.12); color: #FCA5A5; }
+
+/* ── TABS ── */
+.tabs-row { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
+.tab-btn { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); padding: 10px 18px; cursor: pointer; border: none; border-bottom: 2px solid transparent; background: none; transition: all 0.15s; }
+.tab-btn:hover { color: var(--white); }
+.tab-btn.active { color: var(--purple); border-bottom-color: var(--purple); }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* ── CARDS ── */
+.card {
+  background: rgba(255,255,255,0.02); border: 1px solid var(--border);
+  border-radius: 16px; padding: 20px 22px; margin-bottom: 12px;
+  position: relative; overflow: hidden;
+}
+.card::after {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent 0%, var(--purple) 50%, transparent 100%);
+  opacity: 0.3;
+}
+.card.card-success::after { background: linear-gradient(90deg, transparent 0%, var(--success) 50%, transparent 100%); }
+.card.card-danger::after  { background: linear-gradient(90deg, transparent 0%, var(--danger) 50%, transparent 100%); }
+.card.card-building::after { background: linear-gradient(90deg, transparent 0%, var(--warning) 50%, transparent 100%); }
+
+.card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; flex-wrap: wrap; gap: 8px; }
+.card-title { font-family: var(--font-head); font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+.card-sub { font-size: 13px; color: var(--muted); margin-bottom: 14px; line-height: 1.5; }
+.card-links { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.btn-link {
+  display: flex; align-items: center; gap: 5px;
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--muted);
+  background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+  border-radius: 7px; padding: 7px 12px; cursor: pointer;
+  transition: all 0.15s; text-decoration: none;
+}
+.btn-link:hover { color: var(--white); border-color: var(--border-hi); }
+.btn-link.primary { color: #A78BFA; background: var(--purple-lo); border-color: rgba(124,58,237,0.3); }
+.btn-link.primary:hover { background: var(--purple-mid); }
+.btn-link.live { color: var(--success); background: rgba(34,197,94,0.1); border-color: rgba(34,197,94,0.3); }
+.btn-link.live:hover { background: rgba(34,197,94,0.18); }
+.btn-link.danger { color: #FCA5A5; background: rgba(239,68,68,0.1); border-color: rgba(239,68,68,0.3); }
+
+/* ── PIPELINE BAR ── */
+.pipeline { display: flex; align-items: center; gap: 0; margin-bottom: 20px; background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 12px; padding: 10px 16px; overflow-x: auto; }
+.pipe-stage { display: flex; align-items: center; gap: 8px; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+.pipe-stage.done { color: var(--success); }
+.pipe-stage.active { color: var(--warning); }
+.pipe-stage .pipe-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; opacity: 0.6; }
+.pipe-stage.active .pipe-dot { animation: pulsePipe 1.2s ease-in-out infinite; }
+@keyframes pulsePipe { 0%,100%{opacity:0.6;transform:scale(1)} 50%{opacity:1;transform:scale(1.4)} }
+.pipe-arrow { color: var(--border); font-size: 12px; padding: 0 8px; flex-shrink: 0; }
+
+/* ── RAILWAY STATUS ── */
+.rs-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+.rs-status { display: flex; align-items: center; gap: 8px; font-family: var(--font-head); font-size: 14px; font-weight: 700; }
+.rs-pulse { width: 8px; height: 8px; border-radius: 50%; background: currentColor; animation: pulseDotSm 1.4s ease-in-out infinite; }
+@keyframes pulseDotSm { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.35;transform:scale(0.7)} }
+.rs-hint { font-size: 12px; color: var(--muted); margin-top: 6px; line-height: 1.5; }
+
+/* ── REFINE PANEL ── */
+.refine-chips { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+.refine-chip {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.06em;
+  text-transform: uppercase; padding: 5px 10px; border-radius: 6px;
+  background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+  color: var(--muted); cursor: pointer; transition: all 0.15s;
+}
+.refine-chip:hover { color: var(--white); border-color: var(--border-hi); }
+.refine-input {
+  width: 100%; background: rgba(255,255,255,0.03);
+  border: 1px solid var(--border); border-radius: 10px;
+  padding: 12px 14px; font-family: var(--font-body); font-size: 13px;
+  color: var(--white); resize: none; min-height: 80px;
+  outline: none; transition: border-color 0.15s; margin-bottom: 10px;
+}
+.refine-input::placeholder { color: rgba(240,242,255,0.2); }
+.refine-input:focus { border-color: var(--purple); }
+.btn-rebuild {
+  width: 100%; font-family: var(--font-head); font-size: 13px; font-weight: 700;
+  color: var(--white); background: rgba(124,58,237,0.15);
+  border: 1px solid rgba(124,58,237,0.3); border-radius: 10px;
+  padding: 13px; cursor: pointer; transition: all 0.2s; letter-spacing: 0.02em;
+}
+.btn-rebuild:hover { background: var(--purple-mid); box-shadow: 0 4px 20px rgba(124,58,237,0.3); }
+.btn-rebuild:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.alert-box { display: none; padding: 10px 14px; border-radius: 8px; font-size: 13px; margin-bottom: 10px; }
+.alert-error { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25); color: #FCA5A5; }
+
+/* ── LOG ENTRIES ── */
+.log-entry { display: flex; gap: 14px; padding: 14px 0; border-bottom: 1px solid var(--border); }
+.log-entry:last-child { border-bottom: none; }
+.log-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; margin-top: 2px; }
+.log-icon-a { background: rgba(168,85,247,0.15); }
+.log-icon-b { background: rgba(245,158,11,0.1); }
+.log-icon-c { background: rgba(34,197,94,0.1); }
+.log-icon-d { background: rgba(99,102,241,0.12); }
+.log-agent { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+.log-message { font-size: 13px; color: var(--white); line-height: 1.55; word-break: break-word; }
+.log-tags { display: flex; align-items: center; gap: 8px; margin-top: 7px; flex-wrap: wrap; }
+
+/* ── ARTIFACT ── */
+.artifact-card { background: rgba(255,255,255,0.015); border: 1px solid var(--border); border-radius: 14px; margin-bottom: 12px; overflow: hidden; }
+.artifact-head { display: flex; align-items: center; gap: 10px; padding: 14px 18px; border-bottom: 1px solid var(--border); }
+.artifact-head-icon { width: 28px; height: 28px; border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 13px; }
+.artifact-head-title { font-family: var(--font-head); font-size: 13px; font-weight: 700; }
+.artifact-head-sub { font-family: var(--font-mono); font-size: 10px; color: var(--muted); margin-left: auto; }
+.artifact-body { padding: 16px 18px; }
+.artifact-body pre { font-family: var(--font-mono); font-size: 11.5px; line-height: 1.65; color: rgba(240,242,255,0.75); white-space: pre-wrap; word-break: break-word; max-height: 400px; overflow-y: auto; }
+
+/* ── BUILDING STATE ── */
+.building-state { text-align: center; padding: 48px 24px; }
+.building-state h3 { font-family: var(--font-head); font-size: 20px; font-weight: 800; margin-bottom: 8px; }
+.building-state p { color: var(--muted); font-size: 14px; line-height: 1.6; max-width: 400px; margin: 0 auto; }
+
+.spinner { display: inline-block; width: 36px; height: 36px; border: 3px solid rgba(124,58,237,0.2); border-top-color: var(--purple); border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 20px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.spinner-sm { width: 14px; height: 14px; border-width: 2px; margin: 0; display: inline-block; vertical-align: middle; }
+
+.parent-notice { font-family: var(--font-mono); font-size: 11px; color: var(--muted); margin-bottom: 16px; }
+.parent-notice a { color: var(--purple); text-decoration: none; }
+
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-thumb { background: rgba(124,58,237,0.3); border-radius: 2px; }
+
+@keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+.fade-in { animation: fadeUp 0.4s ease forwards; }
+
+@media (max-width: 500px) {
+  nav { padding: 0 16px; }
+  .page { padding: 72px 16px 40px; }
+  .pipeline { flex-wrap: nowrap; }
+}
+
+/* ── LIGHT MODE ── */
+[data-theme="light"] { --bg: #F5F4FF; --white: #0C0B1A; --muted: rgba(12,11,26,0.45); --border: rgba(0,0,0,0.08); --border-hi: rgba(124,58,237,0.25); }
+[data-theme="light"] html, [data-theme="light"] body { background: #F5F4FF; color: #0C0B1A; }
+[data-theme="light"] nav { background: rgba(245,244,255,0.88); border-bottom-color: rgba(0,0,0,0.07); }
+[data-theme="light"] #circuit-canvas { opacity: 0.5; }
+[data-theme="light"] .orb-1, [data-theme="light"] .orb-2 { opacity: 0.2; }
+[data-theme="light"] .card { background: rgba(255,255,255,0.85); border-color: rgba(0,0,0,0.07); }
+[data-theme="light"] .card::after { opacity: 0.2; }
+[data-theme="light"] .build-title { color: #0C0B1A; }
+[data-theme="light"] .detail-ref { color: rgba(12,11,26,0.45); }
+[data-theme="light"] .pipeline { background: rgba(255,255,255,0.75); border-color: rgba(0,0,0,0.07); }
+[data-theme="light"] .pipe-stage { color: rgba(12,11,26,0.4); }
+[data-theme="light"] .pipe-stage.done { color: var(--success); }
+[data-theme="light"] .pipe-stage.active { color: var(--warning); }
+[data-theme="light"] .pipe-arrow { color: rgba(0,0,0,0.2); }
+[data-theme="light"] .tabs-row { border-bottom-color: rgba(0,0,0,0.08); }
+[data-theme="light"] .tab-btn { color: rgba(12,11,26,0.45); }
+[data-theme="light"] .tab-btn:hover { color: #0C0B1A; }
+[data-theme="light"] .log-entry { border-bottom-color: rgba(0,0,0,0.06); }
+[data-theme="light"] .log-agent { color: rgba(12,11,26,0.45); }
+[data-theme="light"] .log-message { color: #0C0B1A; }
+[data-theme="light"] .artifact-card { background: rgba(255,255,255,0.8); border-color: rgba(0,0,0,0.07); }
+[data-theme="light"] .artifact-head { border-bottom-color: rgba(0,0,0,0.06); }
+[data-theme="light"] .artifact-body pre { color: rgba(12,11,26,0.7); }
+[data-theme="light"] .refine-input { background: rgba(255,255,255,0.8); border-color: rgba(0,0,0,0.1); color: #0C0B1A; }
+[data-theme="light"] .refine-input::placeholder { color: rgba(12,11,26,0.25); }
+[data-theme="light"] .refine-chip { background: rgba(255,255,255,0.7); border-color: rgba(0,0,0,0.08); color: rgba(12,11,26,0.5); }
+[data-theme="light"] .refine-chip:hover { color: var(--purple); }
+[data-theme="light"] .btn-link { background: rgba(255,255,255,0.6); border-color: rgba(0,0,0,0.09); color: rgba(12,11,26,0.55); }
+[data-theme="light"] .btn-link:hover { color: #0C0B1A; }
+[data-theme="light"] .card-sub { color: rgba(12,11,26,0.55); }
+[data-theme="light"] .parent-notice { color: rgba(12,11,26,0.45); }
+[data-theme="light"] .rs-hint { color: rgba(12,11,26,0.45); }
+</style>
+</head>
+<script>
+  (function() {
+    var t = localStorage.getItem('relay_theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', t);
+  })();
+</script>
+<body>
+
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+<canvas id="circuit-canvas"></canvas>
+
+<nav>
+  <a class="logo" href="/dashboard">
+    <div class="logo-dot"></div>
+    Relay
+  </a>
+  <div class="nav-right">
+    <a class="nav-btn" href="/dashboard">Builds</a>
+    <button id="theme-toggle" class="nav-btn" onclick="toggleTheme()">Light</button>
+    <button class="nav-btn" onclick="logout()">Sign out</button>
+  </div>
+</nav>
+
+<div class="page" id="content">
+  <div class="building-state">
+    <div class="spinner"></div>
+    <h3>Loading build...</h3>
+  </div>
+</div>
+
+<script src="/js/circuit.js"></script>
+<script>
+  const token = localStorage.getItem('relay_token');
+  if (!token) window.location.href = '/login';
+
+  function toggleTheme() {
+    const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('relay_theme', next);
+    updateThemeBtn();
+  }
+  function updateThemeBtn() {
+    const btn = document.getElementById('theme-toggle');
+    if (!btn) return;
+    btn.textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? 'Light' : 'Dark';
+  }
+  updateThemeBtn();
+
+  const projectId = location.pathname.split('/build/')[1];
+  let buildPollInterval = null;
+  let railwayPollInterval = null;
+  let currentTab = 'overview';
+  let lastRailwayStatus = null;
+
+  function escHtml(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  function timeAgo(d) {
+    if (!d) return '';
+    const s = Math.floor((Date.now() - new Date(d.endsWith('Z') ? d : d + 'Z').getTime()) / 1000);
+    if (s < 60) return 'just now'; if (s < 3600) return `${Math.floor(s/60)}m ago`;
+    if (s < 86400) return `${Math.floor(s/3600)}h ago`; return `${Math.floor(s/86400)}d ago`;
+  }
+  function isRailway(u) { return u && (u.includes('railway.app') || u.includes('up.railway.app')); }
+  function isGithub(u) { return u && u.includes('github.com'); }
+
+  async function apiFetch(url, opts = {}) {
+    const r = await fetch(url, { ...opts, headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', ...(opts.headers || {}) } });
+    if (r.status === 401) { logout(); return null; }
+    return r;
+  }
+
+  async function loadBuild() {
+    const r = await apiFetch(`/api/builds/${projectId}`);
+    if (!r) return;
+    if (!r.ok) { document.getElementById('content').innerHTML = `<div style="text-align:center;padding:60px 24px"><p style="color:var(--muted)">Build not found. <a href="/dashboard" style="color:var(--purple)">Back to builds</a></p></div>`; return; }
+    const b = await r.json();
+    renderBuild(b);
+    if (b.status === 'building') { if (!buildPollInterval) buildPollInterval = setInterval(loadBuild, 5000); }
+    else { if (buildPollInterval) { clearInterval(buildPollInterval); buildPollInterval = null; } }
+    if (b.railway_project_id && b.railway_service_id) startRailwayPolling();
+  }
+
+  function switchTab(tab) {
+    currentTab = tab;
+    document.querySelectorAll('.tab-btn').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.dataset.tab === tab));
+  }
+
+  function statusBadge(status) {
+    const map = { complete: ['badge-green','Complete'], building: ['badge-amber','Building...'], needs_input: ['badge-purple','Needs Input'], error: ['badge-red','Error'] };
+    const [cls, label] = map[status] || ['badge-purple', status];
+    return `<span class="badge ${cls}">${label}</span>`;
+  }
+
+  function pipelineStageClass(stages, key) {
+    if (key === 'chatgpt') return stages.some(s => /openai|chatgpt/i.test(s.author || '')) ? 'done' : '';
+    if (key === 'claude')  return stages.some(s => /claude|anthropic/i.test(s.author || '')) ? 'done' : '';
+    if (key === 'gemini')  return stages.some(s => /gemini|google/i.test(s.author || '')) ? 'done' : '';
+    return '';
+  }
+
+  function renderBuild(b) {
+    const stages = b.stages || [];
+    const artifacts = b.artifacts || [];
+    const isComplete = b.status === 'complete';
+    const isBuilding = b.status === 'building';
+    const hasGitHub = isGithub(b.github_url);
+    const hasRailway = isRailway(b.deploy_url);
+    const hasRailwayProject = !!b.railway_project_id;
+
+    const chatgptDone = stages.some(s => /openai|chatgpt/i.test(s.author || ''));
+    const claudeDone  = stages.some(s => /claude|anthropic/i.test(s.author || ''));
+    const geminiDone  = stages.some(s => /gemini|google/i.test(s.author || ''));
+    const deployDone  = hasGitHub;
+
+    function stageClass(done) { return done ? 'done' : (isBuilding ? 'active' : ''); }
+
+    document.getElementById('content').innerHTML = `
+      <a class="back-btn" href="/dashboard">← Builds</a>
+
+      ${b.parent_id ? `<div class="parent-notice">↩ Iteration — <a href="/build/${b.parent_id}">view parent build</a></div>` : ''}
+
+      <div class="build-title fade-in">${escHtml(b.prompt)}</div>
+      <div class="build-meta-row fade-in">
+        ${statusBadge(b.status)}
+        <span class="detail-ref">${escHtml((b.cross_ref_id || '').slice(0, 8))}</span>
+        <span class="detail-ref">${timeAgo(b.created_at)}</span>
+        ${hasRailway ? `<span class="badge badge-green">⚡ Live</span>` : ''}
+      </div>
+
+      <div class="pipeline fade-in">
+        <div class="pipe-stage ${chatgptDone ? 'done' : (isBuilding ? 'active' : '')}">
+          <div class="pipe-dot"></div>ChatGPT
+        </div>
+        <span class="pipe-arrow">→</span>
+        <div class="pipe-stage ${claudeDone ? 'done' : ''}">
+          <div class="pipe-dot"></div>Claude
+        </div>
+        <span class="pipe-arrow">→</span>
+        <div class="pipe-stage ${geminiDone ? 'done' : ''}">
+          <div class="pipe-dot"></div>Gemini
+        </div>
+        <span class="pipe-arrow">→</span>
+        <div class="pipe-stage ${deployDone ? 'done' : ''}">
+          <div class="pipe-dot"></div>GitHub
+        </div>
+        <span class="pipe-arrow">→</span>
+        <div class="pipe-stage ${hasRailway ? 'done' : ''}">
+          <div class="pipe-dot"></div>Railway
+        </div>
+      </div>
+
+      <div class="tabs-row">
+        <button class="tab-btn active" data-tab="overview" onclick="switchTab('overview')">Overview</button>
+        <button class="tab-btn" data-tab="ai-output" onclick="switchTab('ai-output')">AI Output${artifacts.length ? ` (${artifacts.length})` : ''}</button>
+        <button class="tab-btn" data-tab="relay-log" onclick="switchTab('relay-log')">Relay Log${stages.length ? ` (${stages.length})` : ''}</button>
+      </div>
+
+      <!-- OVERVIEW TAB -->
+      <div class="tab-panel active" data-tab="overview">
+        ${renderDeployCard(b)}
+        ${hasRailwayProject ? `
+          <div class="card" id="railway-card">
+            <div class="card-head">
+              <div class="card-title">🚄 Railway Status</div>
+              <span style="font-family:var(--font-mono);font-size:10px;color:var(--muted);">auto-refreshing</span>
+            </div>
+            <div id="railway-status-inner">
+              <div class="rs-row"><span style="color:var(--muted);font-size:13px;">Checking...</span></div>
+            </div>
+          </div>
+        ` : ''}
+        ${isBuilding ? renderBuildingCard() : ''}
+        ${isComplete ? renderRefineCard(b) : ''}
+      </div>
+
+      <!-- AI OUTPUT TAB -->
+      <div class="tab-panel" data-tab="ai-output">
+        ${artifacts.length ? renderArtifacts(artifacts) : `<div style="padding:40px 0;text-align:center;color:var(--muted);font-size:14px;">${isBuilding ? 'Artifacts appear as each AI finishes...' : 'No artifacts stored for this build.'}</div>`}
+      </div>
+
+      <!-- RELAY LOG TAB -->
+      <div class="tab-panel" data-tab="relay-log">
+        ${stages.length ? stages.map(renderLogEntry).join('') : `<div style="padding:40px 0;text-align:center;color:var(--muted);font-size:14px;">${isBuilding ? 'Relay is processing your build...' : 'No relay log entries.'}</div>`}
+      </div>
+    `;
+
+    // Re-attach tab state
+    switchTab(currentTab);
+    if (hasRailwayProject) startRailwayPolling();
+  }
+
+  function renderDeployCard(b) {
+    const hasGH = isGithub(b.github_url);
+    const hasRL = isRailway(b.deploy_url);
+    const hasRailwayDash = b.railway_url;
+    const needsDeploy = hasGH && !b.railway_project_id && !hasRL;
+
+    if (!hasGH && !hasRL) return '';
+
+    return `
+      <div class="card ${hasRL ? 'card-success' : ''}" style="margin-bottom:12px;">
+        <div class="card-head">
+          <div class="card-title">${hasRL ? '🚀 Deployed' : '⚙️ Built'}</div>
+        </div>
+        <div class="card-sub">${hasRL ? 'Live on Railway · Code on GitHub' : 'Pushed to GitHub · Ready to deploy'}</div>
+        <div class="card-links">
+          ${hasGH ? `<a class="btn-link" href="${escHtml(b.github_url)}" target="_blank">⎇ GitHub ↗</a>` : ''}
+          ${hasRL ? `<a class="btn-link live" href="${escHtml(b.deploy_url)}" target="_blank">⚡ Live App ↗</a>` : ''}
+          ${hasRailwayDash ? `<a class="btn-link primary" href="${escHtml(b.railway_url)}" target="_blank">Railway ↗</a>` : ''}
+          ${needsDeploy ? `<button class="btn-link primary" onclick="deployNow()">🚄 Deploy to Railway</button>` : ''}
+        </div>
+        ${b._deploy_error ? `<div style="margin-top:12px;font-size:12px;color:#FCA5A5;font-family:var(--font-mono);background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:8px;padding:10px 12px;">Deploy error: ${escHtml(b._deploy_error)}</div>` : ''}
+      </div>
+    `;
+  }
+
+  function renderBuildingCard() {
+    return `
+      <div class="card card-building" style="margin-bottom:12px;">
+        <div class="building-state" style="padding:32px 0;">
+          <div class="spinner" style="width:28px;height:28px;border-width:2.5px;margin-bottom:14px;"></div>
+          <h3 style="font-size:16px;margin-bottom:6px;">Relay is building...</h3>
+          <p style="font-size:13px;">The three-AI relay is designing, building, and integrating your app. This takes 3–8 minutes.</p>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderRefineCard(b) {
+    const hasRailway = !!b.railway_project_id;
+    const chips = hasRailway ? [
+      { label: 'Fix deploy failure', msg: 'The Railway deployment failed. Ensure PORT=process.env.PORT, package.json has a valid start script, and all dependencies are listed.' },
+      { label: 'Fix app crash', msg: 'The app deployed but immediately crashed. Fix any runtime errors or missing env vars preventing startup.' },
+      { label: 'Fix port binding', msg: "Ensure PORT = process.env.PORT || 3000 and app.listen binds to '0.0.0.0'." },
+    ] : [
+      { label: 'Add feature', msg: 'Add ' },
+      { label: 'Fix mobile', msg: 'Make fully mobile-responsive.' },
+      { label: 'Fix bug', msg: 'Fix the following bug: ' },
+    ];
+    return `
+      <div class="card" style="margin-bottom:12px;">
+        <div class="card-head">
+          <div class="card-title">💬 Debug &amp; Improve</div>
+        </div>
+        <div class="card-sub">${hasRailway ? 'Describe what\'s broken — the relay fixes and redeploys.' : 'Describe what to change — the relay rebuilds and redeploys.'}</div>
+        <div class="refine-chips">
+          ${chips.map(c => `<button class="refine-chip" onclick="quickFill(${JSON.stringify(c.msg)})">${c.label}</button>`).join('')}
+        </div>
+        <div id="refine-alert" class="alert-box"></div>
+        <textarea class="refine-input" id="refine-input" placeholder="Describe what to fix or improve — be specific. The relay will rebuild all 3 stages and redeploy." rows="3"></textarea>
+        <button class="btn-rebuild" id="refine-btn" onclick="submitRefine()">Fix &amp; Rebuild ↺</button>
+        ${hasRailway ? `<p style="font-size:11px;color:var(--muted);margin-top:8px;font-family:var(--font-mono);">⚡ Railway error context is automatically sent to the relay.</p>` : ''}
+      </div>
+    `;
+  }
+
+  function renderArtifacts(artifacts) {
+    const info = {
+      chatgpt_design:     { icon: '🧠', iconBg: 'rgba(16,163,127,0.15)', title: 'Stage 1 — Design', sub: 'ChatGPT · Strategic Architecture' },
+      claude_build:       { icon: '⚙️', iconBg: 'rgba(204,99,52,0.15)',  title: 'Stage 2 — Build',  sub: 'Claude · Code Generation' },
+      gemini_integration: { icon: '🔗', iconBg: 'rgba(66,133,244,0.15)', title: 'Stage 3 — Integration', sub: 'Gemini · Final Output' },
+    };
+    return artifacts.map(a => {
+      const i = info[a.message_type] || { icon: '📄', iconBg: 'var(--purple-lo)', title: a.message_type || 'Artifact', sub: a.author || '' };
+      return `
+        <div class="artifact-card">
+          <div class="artifact-head">
+            <div class="artifact-head-icon" style="background:${i.iconBg}">${i.icon}</div>
+            <div>
+              <div class="artifact-head-title">${i.title}</div>
+              <div style="font-family:var(--font-mono);font-size:10px;color:var(--muted);margin-top:2px;">${i.sub}</div>
+            </div>
+          </div>
+          <div class="artifact-body">
+            ${a.content ? `<pre>${escHtml(a.content)}</pre>` : '<p style="color:var(--muted);font-size:13px;">No output captured.</p>'}
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function renderLogEntry(s) {
+    const isOpenAI = /openai|chatgpt/i.test(s.author || '');
+    const isClaude = /claude|anthropic/i.test(s.author || '');
+    const isGemini = /gemini|google/i.test(s.author || '');
+    const iconCls = isOpenAI ? 'log-icon-a' : isClaude ? 'log-icon-b' : isGemini ? 'log-icon-c' : 'log-icon-d';
+    const icon = isOpenAI ? '🧠' : isClaude ? '⚙️' : isGemini ? '🔗' : '📡';
+    const preview = (s.content || '').slice(0, 280);
+    return `
+      <div class="log-entry">
+        <div class="log-icon ${iconCls}">${icon}</div>
+        <div style="flex:1;min-width:0;">
+          <div class="log-agent">${escHtml(s.author || 'relay')} · ${timeAgo(s.created_at)}</div>
+          <div class="log-message">${escHtml(preview)}${s.content && s.content.length > 280 ? '…' : ''}</div>
+          <div class="log-tags">
+            ${s.message_type ? `<span class="badge badge-purple">${escHtml(s.message_type)}</span>` : ''}
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  // ── RAILWAY STATUS ──────────────────────────────────────────────
+  function startRailwayPolling() {
+    if (railwayPollInterval) return;
+    pollRailwayStatus();
+    railwayPollInterval = setInterval(pollRailwayStatus, 6000);
+  }
+
+  async function pollRailwayStatus() {
+    const r = await apiFetch(`/api/builds/${projectId}/railway-status`);
+    if (!r) return;
+    const data = await r.json();
+    lastRailwayStatus = data;
+    renderRailwayStatus(data);
+    const terminal = ['SUCCESS', 'FAILED', 'CRASHED', 'SLEEPING'];
+    if (terminal.includes(data.status)) {
+      clearInterval(railwayPollInterval); railwayPollInterval = null;
+    }
+  }
+
+  function renderRailwayStatus(data) {
+    const el = document.getElementById('railway-status-inner');
+    if (!el) return;
+    const s = data.status;
+    const map = {
+      INITIALIZING: { label: '⚙️ Initializing', color: 'var(--warning)', pulse: true },
+      BUILDING:     { label: '🔨 Building',      color: 'var(--warning)', pulse: true },
+      DEPLOYING:    { label: '🚀 Deploying',      color: '#818CF8',       pulse: true },
+      SUCCESS:      { label: '✅ Live',           color: 'var(--success)', pulse: false },
+      FAILED:       { label: '❌ Failed',         color: 'var(--danger)',  pulse: false },
+      CRASHED:      { label: '💥 Crashed',        color: 'var(--danger)',  pulse: false },
+      SLEEPING:     { label: '😴 Sleeping',       color: 'var(--muted)',   pulse: false },
+      UNKNOWN:      { label: '⏳ Waiting...',      color: 'var(--muted)',   pulse: true },
+    };
+    const info = map[s] || { label: s || 'Unknown', color: 'var(--muted)', pulse: false };
+    const failed = s === 'FAILED' || s === 'CRASHED';
+    const liveUrl = isRailway(data.deploy_url) ? data.deploy_url : null;
+
+    el.innerHTML = `
+      <div class="rs-row">
+        <div class="rs-status" style="color:${info.color}">
+          ${info.pulse ? `<div class="rs-pulse" style="background:${info.color}"></div>` : ''}
+          ${info.label}
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+          ${liveUrl ? `<a class="btn-link live" href="${escHtml(liveUrl)}" target="_blank">⚡ Open App ↗</a>` : ''}
+          ${failed ? `<button class="btn-link danger" onclick="prefillFix('${s}')">Fix with AI ↺</button>` : ''}
+        </div>
+      </div>
+      ${failed ? `<div class="rs-hint">Common causes: hardcoded PORT, missing start script, missing dependencies. Click "Fix with AI" to auto-fix and redeploy.</div>` : ''}
+    `;
+
+    // Update the card border color
+    const card = document.getElementById('railway-card');
+    if (card) {
+      card.className = `card ${s === 'SUCCESS' ? 'card-success' : failed ? 'card-danger' : 'card-building'}`;
+    }
+  }
+
+  function prefillFix(status) {
+    switchTab('overview');
+    const ta = document.getElementById('refine-input');
+    if (!ta) return;
+    const msg = status === 'CRASHED'
+      ? "The app deployed but immediately crashed on Railway. Fix any runtime errors, ensure PORT uses process.env.PORT, all dependencies are in package.json, and the app starts correctly with npm start."
+      : "The Railway deployment failed to build. Fix any build errors: check package.json has a valid start script, all imports are correct, and there are no syntax errors.";
+    ta.value = msg;
+    ta.focus();
+    ta.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  function quickFill(msg) {
+    const ta = document.getElementById('refine-input');
+    if (!ta) return;
+    ta.value = msg;
+    ta.focus();
+    ta.setSelectionRange(msg.length, msg.length);
+    ta.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  // ── ITERATE ─────────────────────────────────────────────────────
+  async function submitRefine() {
+    const refinement = (document.getElementById('refine-input')?.value || '').trim();
+    if (!refinement) { showRefineAlert('Describe what to change or fix.'); return; }
+    const btn = document.getElementById('refine-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner spinner-sm"></span> Sending to relay...';
+    hideRefineAlert();
+    try {
+      const r = await apiFetch(`/api/builds/${projectId}/iterate`, {
+        method: 'POST', body: JSON.stringify({ refinement })
+      });
+      if (!r) return;
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error);
+      window.location.href = `/build/${d.id}`;
+    } catch (err) {
+      showRefineAlert(err.message || 'Failed to submit');
+      btn.disabled = false;
+      btn.textContent = 'Fix & Rebuild ↺';
+    }
+  }
+
+  function showRefineAlert(msg) {
+    const el = document.getElementById('refine-alert');
+    if (!el) return;
+    el.className = 'alert-box alert-error'; el.textContent = msg; el.style.display = '';
+  }
+  function hideRefineAlert() {
+    const el = document.getElementById('refine-alert');
+    if (el) el.style.display = 'none';
+  }
+
+  // ── DEPLOY NOW ──────────────────────────────────────────────────
+  async function deployNow() {
+    const r = await apiFetch(`/api/builds/${projectId}/deploy`, { method: 'POST' });
+    if (!r) return;
+    const d = await r.json();
+    if (!r.ok) { alert(d.error || 'Deploy failed'); return; }
+    loadBuild();
+  }
+
+  async function logout() {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    localStorage.removeItem('relay_token');
+    localStorage.removeItem('relay_user');
+    window.location.href = '/login';
+  }
+
+  loadBuild();
+</script>
+</body>
+</html>
