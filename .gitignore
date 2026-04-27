@@ -1,0 +1,7 @@
+node_modules/
+*.db
+*.sqlite
+.cache/
+.local/
+attached_assets/
+push-to-github.js
