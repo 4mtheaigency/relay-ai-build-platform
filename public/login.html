@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Relay — Sign In</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:wght@300;400;500&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #04050A;
+  --purple: #7C3AED;
+  --purple-lo: rgba(124,58,237,0.12);
+  --purple-mid: rgba(124,58,237,0.25);
+  --purple-glow: rgba(124,58,237,0.5);
+  --cyan: #06B6D4;
+  --white: #F0F2FF;
+  --muted: rgba(240,242,255,0.35);
+  --border: rgba(255,255,255,0.07);
+  --border-hi: rgba(124,58,237,0.3);
+  --danger: #EF4444;
+  --font-head: 'Syne', sans-serif;
+  --font-mono: 'DM Mono', monospace;
+  --font-body: 'Inter', sans-serif;
+}
+html, body {
+  background: var(--bg); color: var(--white);
+  font-family: var(--font-body); min-height: 100vh;
+  overflow-x: hidden; display: flex; align-items: center; justify-content: center;
+}
+#circuit-canvas { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+.orb { position: fixed; border-radius: 50%; filter: blur(120px); pointer-events: none; z-index: 0; }
+.orb-1 { width: 600px; height: 600px; background: radial-gradient(circle, rgba(124,58,237,0.18) 0%, transparent 70%); top: -200px; left: -100px; }
+.orb-2 { width: 500px; height: 500px; background: radial-gradient(circle, rgba(6,182,212,0.1) 0%, transparent 70%); bottom: -150px; right: -100px; }
+
+.auth-wrap {
+  position: relative; z-index: 1;
+  width: 100%; max-width: 400px;
+  padding: 24px;
+  animation: fadeUp 0.5s ease forwards;
+}
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.logo-block {
+  text-align: center;
+  margin-bottom: 32px;
+}
+.logo {
+  font-family: var(--font-head);
+  font-size: 28px; font-weight: 800;
+  letter-spacing: -0.5px; color: var(--white);
+  display: inline-flex; align-items: center; gap: 10px;
+  margin-bottom: 8px;
+}
+.logo-dot {
+  width: 9px; height: 9px;
+  background: var(--purple); border-radius: 50%;
+  box-shadow: 0 0 12px var(--purple-glow), 0 0 24px var(--purple-glow);
+  animation: pulseDot 2s ease-in-out infinite;
+}
+@keyframes pulseDot {
+  0%, 100% { box-shadow: 0 0 12px var(--purple-glow), 0 0 24px var(--purple-glow); transform: scale(1); }
+  50% { box-shadow: 0 0 22px var(--purple-glow), 0 0 44px var(--purple-glow); transform: scale(1.25); }
+}
+.logo-sub {
+  font-family: var(--font-mono);
+  font-size: 11px; letter-spacing: 0.15em;
+  text-transform: uppercase; color: var(--muted);
+}
+
+.auth-card {
+  background: rgba(255,255,255,0.02);
+  border: 1px solid var(--border-hi);
+  border-radius: 20px;
+  padding: 28px 28px 24px;
+  box-shadow: 0 0 60px rgba(124,58,237,0.1);
+}
+
+.tab-row {
+  display: flex; gap: 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 24px;
+}
+.tab-btn {
+  flex: 1; padding: 10px 0;
+  font-family: var(--font-mono);
+  font-size: 11px; letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: none; border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer; transition: all 0.15s;
+}
+.tab-btn:hover { color: var(--white); }
+.tab-btn.active { color: var(--purple); border-bottom-color: var(--purple); }
+
+.form-group { margin-bottom: 16px; }
+.form-group label {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 10px; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--muted);
+  margin-bottom: 7px;
+}
+.form-group input {
+  width: 100%; background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border); border-radius: 10px;
+  padding: 11px 14px;
+  font-family: var(--font-body); font-size: 14px;
+  color: var(--white); outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.form-group input::placeholder { color: rgba(240,242,255,0.2); }
+.form-group input:focus {
+  border-color: var(--purple);
+  box-shadow: 0 0 0 3px rgba(124,58,237,0.15);
+}
+
+.btn-submit {
+  width: 100%; margin-top: 8px;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  font-family: var(--font-head);
+  font-size: 14px; font-weight: 700; color: #fff;
+  background: linear-gradient(135deg, var(--purple) 0%, #5B21B6 100%);
+  border: none; border-radius: 12px;
+  padding: 13px; cursor: pointer;
+  transition: all 0.2s; position: relative; overflow: hidden;
+}
+.btn-submit::before {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.12), transparent);
+}
+.btn-submit:hover { transform: translateY(-1px); box-shadow: 0 8px 32px rgba(124,58,237,0.45); }
+.btn-submit:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+.alert-box {
+  display: none; padding: 10px 14px;
+  border-radius: 8px; font-size: 13px;
+  margin-bottom: 16px; line-height: 1.45;
+}
+.alert-error { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25); color: #FCA5A5; }
+.alert-success { background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.25); color: #86EFAC; }
+
+.spinner {
+  width: 14px; height: 14px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  display: inline-block;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-thumb { background: rgba(124,58,237,0.3); border-radius: 2px; }
+
+/* ── LIGHT MODE ── */
+[data-theme="light"] { --bg: #F5F4FF; --white: #0C0B1A; --muted: rgba(12,11,26,0.45); --border: rgba(0,0,0,0.08); --border-hi: rgba(124,58,237,0.25); }
+[data-theme="light"] html, [data-theme="light"] body { background: #F5F4FF; color: #0C0B1A; }
+[data-theme="light"] #circuit-canvas { opacity: 0.5; }
+[data-theme="light"] .orb-1 { opacity: 0.25; }
+[data-theme="light"] .orb-2 { opacity: 0.2; }
+[data-theme="light"] .auth-card { background: rgba(255,255,255,0.92); border-color: rgba(0,0,0,0.08); box-shadow: 0 0 60px rgba(124,58,237,0.06), 0 4px 24px rgba(0,0,0,0.06); }
+[data-theme="light"] .tab-btn { color: rgba(12,11,26,0.45); }
+[data-theme="light"] .tab-btn:hover { color: #0C0B1A; }
+[data-theme="light"] .form-group label { color: rgba(12,11,26,0.45); }
+[data-theme="light"] .form-group input { background: rgba(255,255,255,0.8); border-color: rgba(0,0,0,0.1); color: #0C0B1A; }
+[data-theme="light"] .form-group input::placeholder { color: rgba(12,11,26,0.25); }
+[data-theme="light"] .logo-sub { color: rgba(12,11,26,0.4); }
+[data-theme="light"] .alert-error { background: rgba(239,68,68,0.08); }
+</style>
+</head>
+<script>
+  (function() {
+    var t = localStorage.getItem('relay_theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', t);
+  })();
+</script>
+<body>
+
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+<canvas id="circuit-canvas"></canvas>
+
+<div class="auth-wrap">
+  <div class="logo-block">
+    <div class="logo">
+      <div class="logo-dot"></div>
+      Relay
+    </div>
+    <div class="logo-sub">Three-AI Build Platform</div>
+    <div style="margin-top:12px;">
+      <button id="theme-toggle" onclick="toggleTheme()" style="font-family:var(--font-mono);font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:20px;padding:5px 14px;cursor:pointer;transition:all 0.2s;">Light</button>
+    </div>
+  </div>
+
+  <div class="auth-card">
+    <div class="tab-row">
+      <button class="tab-btn active" onclick="showTab('login')">Sign In</button>
+      <button class="tab-btn" onclick="showTab('register')">Create Account</button>
+    </div>
+
+    <div id="alert" class="alert-box"></div>
+
+    <form id="login-form" onsubmit="handleLogin(event)">
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" id="login-email" placeholder="you@example.com" required autocomplete="email">
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" id="login-password" placeholder="••••••••" required autocomplete="current-password">
+      </div>
+      <button type="submit" class="btn-submit" id="login-btn">Sign In</button>
+    </form>
+
+    <form id="register-form" style="display:none" onsubmit="handleRegister(event)">
+      <div class="form-group">
+        <label>Username</label>
+        <input type="text" id="reg-username" placeholder="yourname" required autocomplete="username">
+      </div>
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" id="reg-email" placeholder="you@example.com" required autocomplete="email">
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" id="reg-password" placeholder="Min 6 characters" required minlength="6" autocomplete="new-password">
+      </div>
+      <button type="submit" class="btn-submit" id="register-btn">Create Account</button>
+    </form>
+  </div>
+</div>
+
+<script src="/js/circuit.js"></script>
+<script>
+  if (localStorage.getItem('relay_token')) window.location.href = '/dashboard';
+
+  function toggleTheme() {
+    const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('relay_theme', next);
+    updateThemeBtn();
+  }
+  function updateThemeBtn() {
+    const btn = document.getElementById('theme-toggle');
+    if (!btn) return;
+    btn.textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? 'Light' : 'Dark';
+  }
+  updateThemeBtn();
+
+  function showTab(tab) {
+    document.querySelectorAll('.tab-btn').forEach((b, i) =>
+      b.classList.toggle('active', (i === 0) === (tab === 'login'))
+    );
+    document.getElementById('login-form').style.display = tab === 'login' ? '' : 'none';
+    document.getElementById('register-form').style.display = tab === 'register' ? '' : 'none';
+    hideAlert();
+  }
+
+  function showAlert(msg, type = 'error') {
+    const el = document.getElementById('alert');
+    el.className = `alert-box alert-${type}`;
+    el.textContent = msg;
+    el.style.display = '';
+  }
+  function hideAlert() { document.getElementById('alert').style.display = 'none'; }
+
+  async function handleLogin(e) {
+    e.preventDefault();
+    const btn = document.getElementById('login-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Signing in...';
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: document.getElementById('login-email').value, password: document.getElementById('login-password').value })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      localStorage.setItem('relay_token', data.token);
+      localStorage.setItem('relay_user', JSON.stringify(data.user));
+      window.location.href = '/dashboard';
+    } catch (err) {
+      showAlert(err.message || 'Login failed');
+      btn.disabled = false; btn.textContent = 'Sign In';
+    }
+  }
+
+  async function handleRegister(e) {
+    e.preventDefault();
+    const btn = document.getElementById('register-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Creating account...';
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: document.getElementById('reg-username').value, email: document.getElementById('reg-email').value, password: document.getElementById('reg-password').value })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      localStorage.setItem('relay_token', data.token);
+      localStorage.setItem('relay_user', JSON.stringify(data.user));
+      window.location.href = '/dashboard';
+    } catch (err) {
+      showAlert(err.message || 'Registration failed');
+      btn.disabled = false; btn.textContent = 'Create Account';
+    }
+  }
+</script>
+</body>
+</html>
