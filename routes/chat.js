@@ -7,7 +7,7 @@ const db = require('../models/db');
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-const FOURM_URL = 'https://agency-bots.replit.app/chat';
+const FOURM_URL = process.env.FOURM_API_URL || 'http://localhost:5000/chat';
 const FOURM_KEY = process.env.FOURM_CHAT_SECRET;
 const FOURM_USER_EMAIL = process.env.FOURM_USER_EMAIL;
 
