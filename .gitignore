@@ -5,3 +5,8 @@ node_modules/
 .local/
 attached_assets/
 push-to-github.js
+
+venv/
+.env
+__pycache__/
+*.pyc
